@@ -1,0 +1,5 @@
+{
+  "name": "Laptop Specs Finder",
+  "description": "An application to find the technical specifications of any laptop model, with a special focus on screen dimensions and refresh rate, using the power of AI.",
+  "requestFramePermissions": []
+}
