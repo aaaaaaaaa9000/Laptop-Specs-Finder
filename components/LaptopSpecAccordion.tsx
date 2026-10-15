@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import type { Confidence, Laptop } from '../types';
 import { formatLaptopAsText } from '../services/specGroups';
+import { shopAddUrl } from '../services/shopExport';
 import LaptopSpecTable from './LaptopSpecTable';
 import { ChevronDownIcon, CopyIcon, CheckIcon } from './icons';
 
@@ -46,6 +47,18 @@ const CopyAllButton: React.FC<{ laptop: Laptop }> = ({ laptop }) => {
   );
 };
 
+const AddToShopButton: React.FC<{ laptop: Laptop }> = ({ laptop }) => (
+  <a
+    href={shopAddUrl(laptop)}
+    target="_blank"
+    rel="noopener noreferrer"
+    className="flex items-center gap-2 text-sm px-3 py-1.5 text-white bg-green-700 hover:bg-green-600 rounded-full focus:outline-none focus:ring-2 focus:ring-green-500 transition-colors"
+    title="يفتح صفحة إضافة لابتوب ومواصفاته مملوءة للمراجعة"
+  >
+    + إضافة للموقع
+  </a>
+);
+
 const LaptopSpecAccordion: React.FC<LaptopSpecAccordionProps> = ({ laptops }) => {
   const [activeIndex, setActiveIndex] = useState<number | null>(0);
 
@@ -63,9 +76,10 @@ const LaptopSpecAccordion: React.FC<LaptopSpecAccordionProps> = ({ laptops }) =>
         <div className="w-full max-w-2xl mx-auto mt-8 bg-gray-800/50 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-700 overflow-hidden">
              <div className="p-5 flex flex-col items-center gap-3">
                 <h2 className="text-2xl font-bold text-center text-white" dir="auto">{laptop.modelName}</h2>
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center justify-center gap-3">
                   <ConfidenceBadge confidence={laptop.confidence} />
                   <CopyAllButton laptop={laptop} />
+                  <AddToShopButton laptop={laptop} />
                 </div>
              </div>
             <LaptopSpecTable laptop={laptop} />
@@ -104,8 +118,9 @@ const LaptopSpecAccordion: React.FC<LaptopSpecAccordionProps> = ({ laptops }) =>
             >
               <div className="overflow-hidden">
                 <div className="border-t border-gray-700">
-                  <div className="flex justify-end p-3">
+                  <div className="flex justify-end gap-2 p-3">
                     <CopyAllButton laptop={laptop} />
+                    <AddToShopButton laptop={laptop} />
                   </div>
                   <LaptopSpecTable laptop={laptop} />
                 </div>

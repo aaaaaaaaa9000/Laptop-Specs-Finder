@@ -47,6 +47,8 @@ export const toSpecGroups = (laptop: Laptop): SpecGroup[] => {
         ['البطارية', laptop.battery],
         ['الوزن', laptop.weight],
         ['المنافذ', laptop.ports],
+        ['الكاميرا', laptop.webcam],
+        ['محرك الأقراص (DVD)', laptop.opticalDrive],
       ]),
     },
     {
