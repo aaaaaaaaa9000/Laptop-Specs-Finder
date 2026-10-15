@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    container_name: ai-app-laptop-specs
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GEMINI_MODEL=${GEMINI_MODEL:-gemini-2.5-flash}
+      - APP_USERNAME=${APP_USERNAME:-user}
+      - APP_PASSWORD=${APP_PASSWORD}
+      - RATE_LIMIT_PER_MINUTE=${RATE_LIMIT_PER_MINUTE:-30}
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.ai-laptop-specs.rule=Host(`${APP_DOMAIN:-specs.aaaaaaaaa9000.cloud}`)"
+      - "traefik.http.routers.ai-laptop-specs.entrypoints=websecure"
+      - "traefik.http.routers.ai-laptop-specs.tls=true"
+      - "traefik.http.routers.ai-laptop-specs.tls.certresolver=letsencrypt"
+      - "traefik.http.services.ai-laptop-specs.loadbalancer.server.port=3000"
+      - "traefik.docker.network=automation-stack_automation-network"
+
+networks:
+  default:
+    external:
+      name: automation-stack_automation-network

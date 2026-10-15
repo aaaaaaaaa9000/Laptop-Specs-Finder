@@ -1,12 +1,16 @@
 import express from "express";
 import path from "path";
+import crypto from "crypto";
 import { rateLimit } from "express-rate-limit";
-import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
 import type { IdentifyResponse, SpecsResponse, Source } from "./types";
 
 const MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 const MAX_QUERY_LENGTH = 100;
+const RATE_LIMIT_PER_MINUTE = Number(process.env.RATE_LIMIT_PER_MINUTE) || 30;
+const APP_USERNAME = process.env.APP_USERNAME || "user";
+const APP_PASSWORD = process.env.APP_PASSWORD || "";
+const IS_PRODUCTION = process.env.NODE_ENV === "production";
 const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const CACHE_MAX_ENTRIES = 500;
 
@@ -170,17 +174,54 @@ ${report}
 </report>
 `;
 
+const sha256 = (value: string) => crypto.createHash("sha256").update(value).digest();
+const safeEqual = (a: string, b: string) => crypto.timingSafeEqual(sha256(a), sha256(b));
+
+// HTTP Basic auth for the whole app (page + API), so the paid API key can't be used by others.
+const basicAuth: express.RequestHandler = (req, res, next) => {
+  const header = req.headers.authorization || "";
+  if (header.startsWith("Basic ")) {
+    const decoded = Buffer.from(header.slice(6), "base64").toString("utf8");
+    const sep = decoded.indexOf(":");
+    if (sep !== -1 && safeEqual(decoded.slice(0, sep), APP_USERNAME) && safeEqual(decoded.slice(sep + 1), APP_PASSWORD)) {
+      next();
+      return;
+    }
+  }
+  res.set("WWW-Authenticate", 'Basic realm="Laptop Specs Finder", charset="UTF-8"');
+  res.status(401).send("مطلوب تسجيل الدخول.");
+};
+
 async function startServer() {
   const app = express();
   const PORT = Number(process.env.PORT) || 3000;
 
   app.set("trust proxy", 1);
 
+  if (APP_PASSWORD) {
+    // Only failed logins count, to slow down password guessing.
+    app.use(rateLimit({
+      windowMs: 15 * 60 * 1000,
+      limit: 20,
+      requestWasSuccessful: (_req, res) => res.statusCode !== 401,
+      skipSuccessfulRequests: true,
+      standardHeaders: "draft-8",
+      legacyHeaders: false,
+      message: "محاولات دخول خاطئة كثيرة. حاول مرة أخرى بعد 15 دقيقة.",
+    }));
+    app.use(basicAuth);
+  } else if (IS_PRODUCTION) {
+    console.error("APP_PASSWORD is required in production. Refusing to start without password protection.");
+    process.exit(1);
+  } else {
+    console.warn("APP_PASSWORD is not set: the app is not password protected (development only).");
+  }
+
   const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
   const specsLimiter = rateLimit({
     windowMs: 60 * 1000,
-    limit: 30,
+    limit: RATE_LIMIT_PER_MINUTE,
     standardHeaders: "draft-8",
     legacyHeaders: false,
     message: { error: "عدد كبير من الطلبات. الرجاء الانتظار دقيقة ثم المحاولة مرة أخرى." },
@@ -313,7 +354,9 @@ async function startServer() {
   });
 
   // Vite middleware for development
-  if (process.env.NODE_ENV !== "production") {
+  if (!IS_PRODUCTION) {
+    // Imported lazily: vite is a dev dependency and isn't installed in the production image.
+    const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
