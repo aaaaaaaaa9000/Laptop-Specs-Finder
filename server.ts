@@ -5,7 +5,7 @@ import { GoogleGenAI, Type } from "@google/genai";
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = Number(process.env.PORT) || 3000;
 
   app.use(express.json());
 
@@ -89,7 +89,7 @@ async function startServer() {
   app.get("/api/hero-image", async (req, res) => {
     try {
       const response = await ai.models.generateImages({
-        model: 'imagen-3.0-generate-002',
+        model: 'imagen-4.0-generate-001',
         prompt: 'A futuristic, abstract background with glowing circuit board patterns and data streams, in shades of deep blue and cyan, representing advanced technology and laptop specifications. Minimalist and sleek, 16:9 aspect ratio.',
         config: {
           numberOfImages: 1,
@@ -120,7 +120,7 @@ async function startServer() {
   } else {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
-    app.get('*', (req, res) => {
+    app.use((req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }
