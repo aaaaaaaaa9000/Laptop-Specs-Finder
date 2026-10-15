@@ -16,5 +16,13 @@ View your app in AI Studio: https://ai.studio/apps/13a2dbeb-8198-48cc-80b5-9474c
 1. Install dependencies:
    `npm install`
 2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
+3. (Optional) Set `GEMINI_MODEL` to override the default model (`gemini-2.5-flash`)
+4. Run the app:
    `npm run dev`
+
+## How search works
+
+1. The server asks Gemini to research the laptop with **Google Search grounding** (model name, series, or part number).
+2. A second call converts the research report into a fixed JSON schema (display, CPU, GPU, RAM, storage, battery...) with a match status, "did you mean" suggestions and a confidence level per variant.
+3. Source links from the grounding metadata are shown under the results.
+4. Results are cached in memory for 7 days per normalized query, and `/api/specs` is rate limited to 10 requests per minute per IP.

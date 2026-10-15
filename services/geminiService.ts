@@ -1,6 +1,6 @@
-import type { Laptop } from '../types';
+import type { SpecsResponse } from '../types';
 
-export const fetchLaptopSpecs = async (laptopModel: string): Promise<Laptop[]> => {
+export const fetchLaptopSpecs = async (laptopModel: string): Promise<SpecsResponse> => {
   if (!laptopModel.trim()) {
     throw new Error("الرجاء إدخال موديل لابتوب صحيح.");
   }
@@ -10,19 +10,19 @@ export const fetchLaptopSpecs = async (laptopModel: string): Promise<Laptop[]> =
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ laptopModel })
     });
-    
+
     if (!response.ok) {
         const errData = await response.json().catch(() => ({}));
         throw new Error(errData.error || "حدث خطأ أثناء جلب المواصفات. الرجاء المحاولة مرة أخرى لاحقًا.");
     }
-    
-    const laptops = await response.json();
 
-    if (!Array.isArray(laptops) || laptops.length === 0) {
+    const data = await response.json();
+
+    if (!data || !Array.isArray(data.laptops)) {
         throw new Error("تم استلام بيانات غير صالحة. حاول استخدام اسم موديل أكثر تحديدًا.");
     }
-    
-    return laptops as Laptop[];
+
+    return data as SpecsResponse;
 
   } catch (error) {
     console.error("API proxy error:", error);
