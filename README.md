@@ -25,4 +25,6 @@ View your app in AI Studio: https://ai.studio/apps/13a2dbeb-8198-48cc-80b5-9474c
 1. The server asks Gemini to research the laptop with **Google Search grounding** (model name, series, or part number).
 2. A second call converts the research report into a fixed JSON schema (display, CPU, GPU, RAM, storage, battery...) with a match status, "did you mean" suggestions and a confidence level per variant.
 3. Source links from the grounding metadata are shown under the results.
-4. Results are cached in memory for 7 days per normalized query, and `/api/specs` is rate limited to 10 requests per minute per IP.
+4. **Search by label photo**: the camera button uploads a photo of the laptop's bottom sticker; `/api/identify` reads the model name and part number (ignoring serial and regulatory numbers) and runs the search.
+5. **History & autocomplete**: successful searches are saved in the browser (localStorage, last 30). Re-opening a saved search costs no API call; "تحديث من الإنترنت" refreshes it. Typing shows suggestions from past queries and from model names found in past results.
+6. Results are cached in memory for 7 days per normalized query, and `/api/specs` is rate limited to 30 requests per minute per IP (shared with `/api/identify`).

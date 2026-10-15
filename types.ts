@@ -46,3 +46,17 @@ export interface SpecsResponse {
   sources: Source[];
   cached?: boolean;
 }
+
+export interface IdentifyResponse {
+  found: boolean;
+  brand?: string;
+  modelName?: string;
+  partNumber?: string;
+  searchQuery: string;
+}
+
+export interface HistoryEntry {
+  query: string;
+  timestamp: number;
+  result: SpecsResponse;
+}

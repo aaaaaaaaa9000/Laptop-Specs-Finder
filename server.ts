@@ -3,7 +3,7 @@ import path from "path";
 import { rateLimit } from "express-rate-limit";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
-import type { SpecsResponse, Source } from "./types";
+import type { IdentifyResponse, SpecsResponse, Source } from "./types";
 
 const MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 const MAX_QUERY_LENGTH = 100;
@@ -79,6 +79,38 @@ const schema = {
   required: ["matchStatus", "suggestions", "laptops"],
 };
 
+const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
+
+const identifySchema = {
+  type: Type.OBJECT,
+  properties: {
+    found: { type: Type.BOOLEAN, description: "true if the photo shows a laptop label/sticker with a readable model or product number." },
+    brand: { type: Type.STRING },
+    modelName: { type: Type.STRING, description: "Marketing model name as printed, e.g. HP 250 G8, ThinkPad T14 Gen 2, Latitude 5420." },
+    partNumber: {
+      type: Type.STRING,
+      description: "Product/part number that identifies the exact configuration: HP 'P/N' or 'Product No.', Lenovo 'MTM' / 'Type' (e.g. 20W0-00ABUS), Asus/Acer 'P/N' or 'SNID'-free model code.",
+    },
+    searchQuery: {
+      type: Type.STRING,
+      description: "Best search query to find the exact specs: brand + model name + part number when available. Max 100 characters.",
+    },
+  },
+  required: ["found", "searchQuery"],
+};
+
+const identifyPrompt = `
+This photo shows the label/sticker of a laptop (usually on the bottom case or under the battery), or the laptop box.
+Read the printed text and identify the laptop.
+
+Rules:
+- Only report text that is actually readable in the photo. Never guess characters.
+- IGNORE serial numbers (S/N, SN), Dell service tags, CT/CN numbers, warranty codes, MAC addresses and barcodes.
+- IGNORE regulatory model numbers, which do not identify the product: e.g. HP "TPN-xxxx", Dell "P123G" / "Regulatory Model", Lenovo "Model: TP00xxx", Asus "Model: X515E" when a marketing name is also present.
+- Prefer the product/part number (HP P/N or Product No., Lenovo MTM/Type) because it identifies the exact configuration.
+- If no laptop identification is readable, set found to false and searchQuery to "".
+`;
+
 const normalizeQuery = (q: string) => q.replace(/[<>"`]/g, "").replace(/\s+/g, " ").trim();
 
 const cache = new Map<string, { data: SpecsResponse; expires: number }>();
@@ -143,19 +175,18 @@ async function startServer() {
   const PORT = Number(process.env.PORT) || 3000;
 
   app.set("trust proxy", 1);
-  app.use(express.json({ limit: "10kb" }));
 
   const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
   const specsLimiter = rateLimit({
     windowMs: 60 * 1000,
-    limit: 10,
+    limit: 30,
     standardHeaders: "draft-8",
     legacyHeaders: false,
     message: { error: "عدد كبير من الطلبات. الرجاء الانتظار دقيقة ثم المحاولة مرة أخرى." },
   });
 
-  app.post("/api/specs", specsLimiter, async (req, res) => {
+  app.post("/api/specs", specsLimiter, express.json({ limit: "10kb" }), async (req, res) => {
     const raw = req.body?.laptopModel;
     if (typeof raw !== "string" || !normalizeQuery(raw)) {
       res.status(400).json({ error: "الرجاء إدخال موديل لابتوب صحيح." });
@@ -172,7 +203,7 @@ async function startServer() {
     }
 
     const cacheKey = query.toLowerCase();
-    const cached = getCached(cacheKey);
+    const cached = req.body?.refresh === true ? null : getCached(cacheKey);
     if (cached) {
       res.json({ ...cached, cached: true });
       return;
@@ -231,6 +262,52 @@ async function startServer() {
         res.status(502).json({ error: "تعذّر قراءة رد الذكاء الاصطناعي. الرجاء المحاولة مرة أخرى." });
       } else {
         res.status(500).json({ error: "حدث خطأ أثناء جلب المواصفات. الرجاء المحاولة مرة أخرى لاحقًا." });
+      }
+    }
+  });
+
+  app.post("/api/identify", specsLimiter, express.json({ limit: "8mb" }), async (req, res) => {
+    const { image, mimeType } = req.body ?? {};
+    if (typeof image !== "string" || !image || !ALLOWED_IMAGE_TYPES.includes(mimeType)) {
+      res.status(400).json({ error: "الرجاء رفع صورة صالحة (JPEG أو PNG أو WebP)." });
+      return;
+    }
+    if (!process.env.GEMINI_API_KEY) {
+      res.status(500).json({ error: "لم يتم ضبط مفتاح GEMINI_API_KEY على الخادم." });
+      return;
+    }
+
+    try {
+      const response = await ai.models.generateContent({
+        model: MODEL,
+        contents: [
+          {
+            role: "user",
+            parts: [{ inlineData: { data: image, mimeType } }, { text: identifyPrompt }],
+          },
+        ],
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: identifySchema,
+          temperature: 0,
+        },
+      });
+      const parsed = JSON.parse(response.text?.trim() || "{}");
+      const searchQuery = normalizeQuery(typeof parsed.searchQuery === "string" ? parsed.searchQuery : "").slice(0, MAX_QUERY_LENGTH);
+      const data: IdentifyResponse = {
+        found: parsed.found === true && !!searchQuery,
+        brand: parsed.brand || undefined,
+        modelName: parsed.modelName || undefined,
+        partNumber: parsed.partNumber || undefined,
+        searchQuery,
+      };
+      res.json(data);
+    } catch (error: any) {
+      console.error("API error for identify:", error);
+      if (error?.status === 429) {
+        res.status(429).json({ error: "تم تجاوز حد استخدام Gemini API. الرجاء المحاولة لاحقًا." });
+      } else {
+        res.status(500).json({ error: "تعذّر قراءة الصورة. الرجاء المحاولة مرة أخرى بصورة أوضح." });
       }
     }
   });

@@ -1,14 +1,15 @@
 
 import React from 'react';
 
-const LoadingSpinner: React.FC = () => {
-  const messages = [
+const defaultMessages = [
       "جاري تحليل طلبك...",
       "التواصل مع الذكاء الاصطناعي...",
       "البحث في الإنترنت عن المصادر...",
       "جمع المواصفات المطلوبة...",
       "لحظات قليلة وينتهي كل شيء..."
-  ];
+];
+
+const LoadingSpinner: React.FC<{ messages?: string[] }> = ({ messages = defaultMessages }) => {
   const [message, setMessage] = React.useState(messages[0]);
 
   React.useEffect(() => {
