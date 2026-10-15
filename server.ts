@@ -58,6 +58,8 @@ const schema = {
           battery: { type: Type.STRING, description: "e.g. 86Wh" },
           weight: { type: Type.STRING, description: "e.g. 1.86 kg" },
           ports: { type: Type.STRING },
+          webcam: { type: Type.STRING, description: 'Webcam, e.g. "720p HD" or "None".' },
+          opticalDrive: { type: Type.STRING, description: 'Optical drive, e.g. "DVD-RW" or "None".' },
           confidence: {
             type: Type.STRING,
             enum: ["high", "medium", "low"],
@@ -153,7 +155,7 @@ Rules:
 - If the query is a part number, identify the exact configuration it maps to.
 - If the model has several configurations (different CPU, GPU, screen, etc.), list each one separately.
 - Pay special attention to the display: size, resolution, refresh rate, panel type, brightness (nits), color gamut, touch.
-- Cover: CPU, GPU (with VRAM), RAM, storage, display, battery (Wh), weight, ports, release year, part number.
+- Cover: CPU, GPU (with VRAM), RAM, storage (type: NVMe/SATA/HDD), display, webcam, optical drive (DVD or none), battery (Wh), weight, ports, release year, part number.
 - If no laptop matches the query, say so clearly and list the closest real model names.
 
 Write a detailed factual report in English.

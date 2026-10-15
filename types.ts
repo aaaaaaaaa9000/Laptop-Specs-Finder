@@ -28,6 +28,8 @@ export interface Laptop {
   battery?: string;
   weight?: string;
   ports?: string;
+  webcam?: string;
+  opticalDrive?: string;
   confidence: Confidence;
   extraSpecs?: Specification[];
 }
