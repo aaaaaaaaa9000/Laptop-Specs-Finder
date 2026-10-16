@@ -16,7 +16,7 @@ View your app in AI Studio: https://ai.studio/apps/13a2dbeb-8198-48cc-80b5-9474c
 1. Install dependencies:
    `npm install`
 2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. (Optional) Set `GEMINI_MODEL` to override the default model (`gemini-2.5-flash`)
+3. (Optional) Set `GEMINI_MODEL` to override the default model (`gemini-2.5-flash`). Gemini 3+ models run at their default temperature as Google recommends; older models use low temperatures for consistent answers
 4. Run the app:
    `npm run dev`
 
