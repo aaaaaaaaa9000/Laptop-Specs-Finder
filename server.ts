@@ -2,7 +2,7 @@ import express from "express";
 import path from "path";
 import crypto from "crypto";
 import { rateLimit } from "express-rate-limit";
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenAI, ThinkingLevel, Type } from "@google/genai";
 import type { IdentifyResponse, SpecsResponse, Source } from "./types";
 
 const MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
@@ -11,6 +11,11 @@ const RATE_LIMIT_PER_MINUTE = Number(process.env.RATE_LIMIT_PER_MINUTE) || 30;
 const APP_USERNAME = process.env.APP_USERNAME || "user";
 const APP_PASSWORD = process.env.APP_PASSWORD || "";
 const IS_PRODUCTION = process.env.NODE_ENV === "production";
+
+// Google recommends leaving Gemini 3+ at its default temperature (1.0): lower values can cause
+// looping or degraded output. Older models get the low temperatures that keep answers consistent.
+const IS_GEMINI_3_PLUS = Number(MODEL.match(/^gemini-(\d+)/)?.[1] ?? 0) >= 3;
+const genConfig = (temperature: number) => (IS_GEMINI_3_PLUS ? {} : { temperature });
 const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const CACHE_MAX_ENTRIES = 500;
 
@@ -254,13 +259,14 @@ async function startServer() {
 
     try {
       // Step 1: research with Google Search grounding.
-      // gemini-2.5 models can't combine search grounding with a response schema, hence two calls.
+      // Kept separate from the JSON step: gemini-2.5 can't combine them, and combining them on
+      // newer models has been reported to return truncated JSON.
       const research = await ai.models.generateContent({
         model: MODEL,
         contents: researchPrompt(query),
         config: {
           tools: [{ googleSearch: {} }],
-          temperature: 0.2,
+          ...genConfig(0.2),
         },
       });
       const report = research.text?.trim();
@@ -283,7 +289,9 @@ async function startServer() {
         config: {
           responseMimeType: "application/json",
           responseSchema: schema,
-          temperature: 0,
+          ...genConfig(0),
+          // Converting the report to JSON needs little reasoning.
+          ...(IS_GEMINI_3_PLUS && { thinkingConfig: { thinkingLevel: ThinkingLevel.LOW } }),
         },
       });
       const parsed = JSON.parse(structured.text?.trim() || "{}");
@@ -332,7 +340,7 @@ async function startServer() {
         config: {
           responseMimeType: "application/json",
           responseSchema: identifySchema,
-          temperature: 0,
+          ...genConfig(0),
         },
       });
       const parsed = JSON.parse(response.text?.trim() || "{}");
