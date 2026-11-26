@@ -31,8 +31,8 @@ View your app in AI Studio: https://ai.studio/apps/13a2dbeb-8198-48cc-80b5-9474c
 
 ## Password protection
 
-Set `APP_PASSWORD` (and optionally `APP_USERNAME`, default `user`) to protect the whole app, page and API, with HTTP Basic auth.
-In production (`NODE_ENV=production`) the server refuses to start without `APP_PASSWORD`. After 20 failed logins from one IP, logins are blocked for 15 minutes.
+Set `APP_PASSWORD` (and optionally `APP_USERNAME`, default `user`) to protect the whole app, page and API, with an in-page login form (password managers such as Bitwarden can fill it) and a signed session cookie that keeps you signed in for `SESSION_DAYS` days (default 180). Optional `SESSION_SECRET` sets the cookie signing key; by default it is derived from the password, so changing the password signs everyone out. `/logout` ends the session.
+In production (`NODE_ENV=production`) the server refuses to start without `APP_PASSWORD`. After 10 failed logins from one IP, logins are blocked for 15 minutes.
 
 ## Deploy with Portainer + Traefik
 

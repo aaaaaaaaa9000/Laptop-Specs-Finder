@@ -11,6 +11,8 @@ services:
       - GEMINI_MODEL=${GEMINI_MODEL:-gemini-2.5-flash}
       - APP_USERNAME=${APP_USERNAME:-user}
       - APP_PASSWORD=${APP_PASSWORD}
+      - SESSION_DAYS=${SESSION_DAYS:-180}
+      - SESSION_SECRET=${SESSION_SECRET:-}
       - RATE_LIMIT_PER_MINUTE=${RATE_LIMIT_PER_MINUTE:-30}
     logging:
       driver: "json-file"
