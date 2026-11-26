@@ -1,6 +1,6 @@
 import express from "express";
 import path from "path";
-import crypto from "crypto";
+import { installLogin } from "./login";
 import { rateLimit } from "express-rate-limit";
 import { GoogleGenAI, ThinkingLevel, Type } from "@google/genai";
 import type { IdentifyResponse, SpecsResponse, Source } from "./types";
@@ -181,42 +181,20 @@ ${report}
 </report>
 `;
 
-const sha256 = (value: string) => crypto.createHash("sha256").update(value).digest();
-const safeEqual = (a: string, b: string) => crypto.timingSafeEqual(sha256(a), sha256(b));
-
-// HTTP Basic auth for the whole app (page + API), so the paid API key can't be used by others.
-const basicAuth: express.RequestHandler = (req, res, next) => {
-  const header = req.headers.authorization || "";
-  if (header.startsWith("Basic ")) {
-    const decoded = Buffer.from(header.slice(6), "base64").toString("utf8");
-    const sep = decoded.indexOf(":");
-    if (sep !== -1 && safeEqual(decoded.slice(0, sep), APP_USERNAME) && safeEqual(decoded.slice(sep + 1), APP_PASSWORD)) {
-      next();
-      return;
-    }
-  }
-  res.set("WWW-Authenticate", 'Basic realm="Laptop Specs Finder", charset="UTF-8"');
-  res.status(401).send("مطلوب تسجيل الدخول.");
-};
-
 async function startServer() {
   const app = express();
   const PORT = Number(process.env.PORT) || 3000;
 
   app.set("trust proxy", 1);
 
+  app.get("/api/health", (_req, res) => {
+    res.json({ status: "ok" });
+  });
+
   if (APP_PASSWORD) {
-    // Only failed logins count, to slow down password guessing.
-    app.use(rateLimit({
-      windowMs: 15 * 60 * 1000,
-      limit: 20,
-      requestWasSuccessful: (_req, res) => res.statusCode !== 401,
-      skipSuccessfulRequests: true,
-      standardHeaders: "draft-8",
-      legacyHeaders: false,
-      message: "محاولات دخول خاطئة كثيرة. حاول مرة أخرى بعد 15 دقيقة.",
-    }));
-    app.use(basicAuth);
+    // In-page login form + session cookie for the whole app (page + API), so the paid API key
+    // can't be used by others. Failed logins are limited per IP inside installLogin.
+    installLogin(app, { appName: "مستكشف مواصفات اللابتوب", username: APP_USERNAME, password: APP_PASSWORD, accent: "#2563eb" });
   } else if (IS_PRODUCTION) {
     console.error("APP_PASSWORD is required in production. Refusing to start without password protection.");
     process.exit(1);
